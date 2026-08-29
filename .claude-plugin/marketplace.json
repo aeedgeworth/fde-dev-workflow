@@ -1,0 +1,16 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "adam-fde",
+  "description": "Adam Edgeworth's spec-driven development workflow for Databricks and Python work.",
+  "owner": {
+    "name": "Adam Edgeworth"
+  },
+  "plugins": [
+    {
+      "name": "fde",
+      "description": "Spec-driven development loop: interview to a standard spec, work a verifiable task ledger, ship with review. Specs live outside the repo so client working trees stay clean.",
+      "category": "workflow",
+      "source": "./plugins/fde"
+    }
+  ]
+}
