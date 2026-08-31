@@ -1,13 +1,12 @@
 ---
 name: git-convention
-description: Standard branch names, commit messages, and pull request bodies. Use whenever creating a branch, writing a commit, or opening a PR, so history stays consistent and reviewable across every repo. Triggers on "commit this", "open a PR", "what should I name this branch", or preparing to push.
+description: Fallback branch, commit, and pull-request conventions for fde work. Use when creating git history and the target repository does not define a stronger local convention.
 ---
 
 # Git convention
 
-One shape for branches, commits, and PRs, everywhere. Consistency is the point:
-a reader should be able to scan `git log --oneline` and understand what
-happened without opening anything.
+Follow the target repository's documented and recent conventions first. Use the
+shape below only as a personal fallback when the repository is silent.
 
 ## Types
 
@@ -38,8 +37,9 @@ consider whether it should be two commits.
 - Lowercase, hyphens, no underscores. Three to five words in the slug.
 - Include the spec id when the work has one — it is how the branch, the ledger,
   and the PR stay connected.
-- Never commit directly to `main`. Never force-push a branch someone else may
-  have pulled; if you must rewrite your own, use `--force-with-lease`.
+- Discover the repository's default branch; do not assume it is `main`.
+- Never commit directly to the default branch. Never force-push a branch someone
+  else may have pulled; if you must rewrite your own, use `--force-with-lease`.
 
 ## Commits
 
@@ -58,17 +58,16 @@ Spec: <spec-id> <task-id>
 - **The body explains *why*.** The diff already shows what. Good bodies cover:
   the reason this approach over the obvious one, a constraint that is not
   visible in the code, or a consequence a reviewer should check.
-- **The `Spec:` trailer links code to the ledger** and is what lets
-  `/fde:status` verify a checked task against real commits. Include it whenever
-  a spec exists.
-- When Claude authors the commit, keep the harness's `Co-Authored-By` trailer.
+- **The `Spec:` trailer links repository history to the external spec.** Include
+  it when committing spec-driven work.
 
 **One logical change per commit.** A commit that both fixes a bug and reformats
 a file is two commits. Never bundle an unrelated refactor into a feature commit
 — it makes review harder and `git bisect` useless.
 
-The ledger update belongs in the **same commit** as the code it describes.
-Separating them is how plans drift.
+The ledger lives outside the repository. Update it after verification; never
+attempt to include it in the code commit or record a commit's SHA inside that
+same commit.
 
 ## Pull requests
 

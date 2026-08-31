@@ -1,119 +1,203 @@
 # fde-dev-workflow
 
-A spec-driven development workflow for Claude Code, packaged as a plugin.
-Built for Databricks and Python work in large monorepos.
+A lightweight development workflow for Claude Code, Codex, and Cursor, with
+optional persistent specs for complex or multi-session work. It is especially
+useful for Databricks changes in large monorepos.
 
-Four commands, six skills, three hooks. No orchestrator, no daemon, no Python
-package to maintain.
+The default is deliberately simple: ask the coding agent for an outcome and let
+it inspect, implement, verify, and report. Reach for FDE when the work needs a
+durable scope boundary, decision record, or resumable execution plan.
 
 ## Install
 
-On any machine:
+### Claude Code
 
 ```bash
-claude plugin marketplace add <your-github-user>/fde-dev-workflow
+claude plugin marketplace add <github-user>/fde-dev-workflow
 claude plugin install fde@adam-fde
 ```
 
-That is the whole setup. Skills, commands, agents, and hooks travel with it,
-versioned and rollback-able.
+### Codex
 
-## The loop
+Add the repository as a marketplace:
 
-```
-/fde:spec "<rough idea>"     interview  ->  SPEC.md + PLAN.md
-/fde:build                   work the ledger, one verified task at a time
-/fde:status                  re-run the evidence; report drift
-/fde:ship                    validate, review, open the PR
+```bash
+codex plugin marketplace add <github-user>/fde-dev-workflow
 ```
 
-## Two files, two lifecycles
+Start a new Codex session, open `/plugins`, choose the `adam-fde` marketplace,
+and install `fde`. This repository's legacy marketplace file is understood by
+both hosts; the plugin itself also has a native `.codex-plugin/plugin.json`.
 
-Most spec systems rot because they mix durable reasoning with live progress.
-This one keeps them apart:
+To bring an existing Claude installation into Codex instead, run `/import` in
+Codex CLI, choose Claude Code, and select the FDE plugin and related setup.
 
-- **`SPEC.md` — why and what.** Problem, scope, non-goals, key decisions with
-  rationale, acceptance criteria, risks. Changes rarely. When it does, an entry
-  is appended to its **Decision log** rather than history being rewritten.
-- **`PLAN.md` — how, and where we are.** An ordered task ledger. Every task
-  carries an `evidence:` command that fails before the task and passes after,
-  and every checked task carries the commit SHA that did it.
+### Cursor
 
-Nothing is recorded in both files. There is no separate backlog index to keep in
-sync — `/fde:status` derives it.
+Skills, commands, and hooks are the same files. If FDE is already installed in
+Claude Code, enable **Include third-party Plugins, Skills, and other configs**
+in Cursor and reload the window; Cursor imports that installation directly. Do
+not also install a local copy, because Cursor currently loads both sources.
 
-## How drift is prevented
+For Cursor-only use or native-plugin development, mirror the plugin into
+Cursor's local-plugin root:
 
-Plans go stale when the ledger is *asserted* rather than *checked*. Three
-mechanisms:
-
-1. **Evidence, not claims.** A box is only ticked after its command is seen to
-   pass. `/fde:status` re-runs all of them and reports failures as defects.
-2. **The ledger commits with the code.** Same commit, plus a `Spec:` trailer, so
-   claimed work can be verified against real history.
-3. **A hard cap of ~15 tasks.** Past that the work is two specs. A ledger nobody
-   can hold in their head is one that stops being updated.
-
-## Where specs live
-
-Outside the repo, always — under `$DEV_WORKFLOW_HOME` (default `~/dev-workflow`),
-keyed by the repo's git remote:
-
+```bash
+mkdir -p ~/.cursor/plugins/local/fde
+rsync -a --delete "$(pwd)/plugins/fde/" ~/.cursor/plugins/local/fde/
 ```
+
+This uses a real directory because some Cursor builds reject symlinks whose
+targets are outside the local-plugin root. It also removes stale files from
+earlier versions. Reload the window, then confirm `fde` under Customize. A
+`.cursor-plugin/marketplace.json` at the repository root is available if you
+later import this repo as a Cursor team marketplace.
+
+Set the same `DEV_WORKFLOW_HOME` for Claude, Codex, and Cursor if they should
+share the spec store. Ensure that location is writable under the host's sandbox
+policy.
+
+## Choose the lightest useful workflow
+
+### Contained work
+
+Ask directly. A useful request identifies the goal, relevant context or paths,
+important constraints, and what must be true when the work is done. No FDE
+artifact is required.
+
+### Complex or multi-session work
+
+Claude Code exposes thin command adapters:
+
+```text
+/fde:spec "<rough idea>"       create SPEC.md and PLAN.md
+/fde:build                     implement the active plan
+/fde:status                    resume active work
+/fde:status <spec-ref>         reconcile the ledger against repository evidence
+/fde:ship --no-pr              validate and review without external actions
+/fde:ship                      validate, review, push, and open a PR
+```
+
+In Codex, invoke the shared skill directly:
+
+```text
+$fde-workflow plan <rough idea>
+$fde-workflow build
+$fde-workflow resume
+$fde-workflow reconcile <spec-ref>
+$fde-workflow ship --no-pr
+```
+
+Cursor uses the same command files as slash commands (`/spec`, `/build`,
+`/status`, `/ship`; the host may prefix the plugin name) and the same
+`fde-workflow` skill (`/fde-workflow`).
+
+Build mode completes the safe remaining scope by default. Use `--step` when you
+want exactly one ledger task and `--commit` when you want the agent to create
+coherent commits. Commits are not an implicit side effect of implementation.
+
+## Persistent artifacts
+
+FDE keeps two files with different lifecycles:
+
+- `SPEC.md` records the problem, scope, non-goals, approach, decisions,
+  acceptance criteria, risks, and decision log.
+- `PLAN.md` is the mutable ordered ledger of outcomes and their verification.
+
+Specs live outside the client repository under `$DEV_WORKFLOW_HOME`, defaulting
+to `~/dev-workflow`, and are keyed by the Git remote:
+
+```text
 ~/dev-workflow/specs/github.com__owner__repo/003-schema-drift-guard/
 ```
 
-A client monorepo's working tree stays clean, nothing can be committed by
-accident, and every worktree and clone of a repo resolves to the same specs.
-To carry specs between laptops, `git init` that directory and push it privately.
+Because the ledger is external, it is never placed in the code commit. A checked
+task records `done: <date> · uncommitted` until its implementation is committed;
+the ledger is then updated with the short SHA. The commit's
+`Spec: <spec-id> <task-id-list>` trailer provides the reverse link. Set the same
+`DEV_WORKFLOW_HOME` for Claude, Codex, and Cursor if they should share the store.
+Ensure that location is writable under the host's sandbox policy.
+
+Resume is intentionally cheap. Explicit reconciliation checks recorded SHAs,
+`Spec:` trailers, changed paths, and safe local verification commands. Remote
+deployments, jobs, migrations, and other stateful checks are never rerun merely
+to report status.
 
 ## Skills
 
-| Skill | What it carries |
+| Skill | Purpose |
 | --- | --- |
-| `spec-writing` | The standard spec shape and how to size work |
-| `repo-conventions` | Match the directory you're editing, not the repo root |
-| `clean-code` | Clarity over cleverness, KISS/YAGNI, explicit failure modes |
-| `testing` | Behavior over implementation, no redundant cases |
-| `git-convention` | Branch, commit, and PR format |
-| `databricks-workflow` | Profile discipline, skill routing, verification ladder |
+| `fde-workflow` | Plan, build, resume, validate, and ship persistent work |
+| `databricks-workflow` | Explicit profiles and proportionate local/remote validation |
+| `git-convention` | Fallback branch, commit, and PR conventions when the repo is silent |
+| `clean-code` | KISS/YAGNI, rule-of-three, explicit behavior, and focused diffs |
+| `testing` | Behavioral tests, meaningful red steps, and equivalence-class coverage |
+| `repo-conventions` | Discover authoritative local commands and patterns before editing |
 
-`spec-auditor` is a read-only agent that checks an implementation against its
-spec's acceptance criteria — the check on a build that drifted from its own plan.
+The target repository's nearest `CLAUDE.md`, `AGENTS.md`, project configuration,
+neighboring code, tests, and CI remain authoritative. FDE does not create or
+modify repository instruction files without explicit permission.
 
 ## Hooks
 
-Advisory, with one exception:
+Two small hooks are bundled:
 
-- **SessionStart** — prints the active spec and next task. Silent if this repo
-  has no specs.
-- **PostToolUse** — formats edited files, but *only* with a formatter the project
-  itself configures. No config, no formatting.
-- **PreToolUse** — **blocks** production bundle deploys, bundle destroys,
-  production Terraform, force-pushes, and pushes to the default branch. Override
-  loudly with `FDE_ALLOW_PROD=1`.
+- Session start reports the newest non-terminal spec and next task. It is
+  silent when no active spec exists and does not create an empty store.
+- Before shell execution, the guard blocks common explicit spellings of
+  production Databricks or Terraform operations, bundle destruction, unsafe
+  force-pushes, and pushes to the detected default branch. Repositories whose
+  default branch is `main` or `master` are handled identically (`trunk` is also
+  supported).
+
+Claude Code wires these as `SessionStart` and `PreToolUse` (Bash). Cursor
+wires the same scripts as `sessionStart` and `beforeShellExecution`.
+
+For an engagement whose only workspace is named production, declare it once so
+routine deploys are not treated as promotions — `bundle destroy` stays blocked:
+
+```toml
+# ~/dev-workflow/specs/<repo-key>/fde.toml
+[safety]
+single_workspace = true
+```
+
+The command guard is defense-in-depth, not a complete security boundary. Host
+sandboxing, approvals, and the instruction that production actions are
+user-only remain authoritative. After explicit user authorization, prefix one
+command with `FDE_GUARD_OVERRIDE=1` for a loud, transcript-visible override;
+later commands remain protected. Formatting is run through each repository's
+normal validation commands rather than a silent post-edit hook.
 
 ## Layout
 
-```
-.claude-plugin/marketplace.json     this repo as a marketplace
+```text
+.claude-plugin/marketplace.json       marketplace understood by Claude and Codex
+.cursor-plugin/marketplace.json        Cursor team-marketplace manifest
 plugins/fde/
-  commands/     spec.md  build.md  status.md  ship.md
-  skills/       six SKILL.md files
-  agents/       spec-auditor.md
-  hooks/        hooks.json  guard.py  session_start.py  autoformat.py
-  scripts/      spec_store.py
-  templates/    SPEC.md  PLAN.md
+  .claude-plugin/plugin.json          Claude plugin manifest
+  .codex-plugin/plugin.json           Codex plugin manifest
+  .cursor-plugin/plugin.json         Cursor plugin manifest
+  commands/                           thin command adapters
+  skills/                             shared workflow skills
+  hooks/                              session orientation and command guard
+  scripts/spec_store.py               deterministic external-spec storage
+  templates/                          SPEC.md and PLAN.md
+tests/                                script and guard regression tests
 ```
 
-## Tweaking it
+## Develop and verify
 
-Edit a file, then:
+After editing the plugin, run:
 
 ```bash
-claude plugin marketplace update adam-fde && claude plugin install fde@adam-fde
+python3 -m unittest discover -s tests -v
+claude plugin validate .
+claude plugin validate plugins/fde
+# Only when testing the native Cursor plugin rather than Claude import:
+rsync -a --delete "$(pwd)/plugins/fde/" ~/.cursor/plugins/local/fde/
 ```
 
-Skills and commands are plain markdown — the prose *is* the behavior. When
-Claude gets something wrong twice, write the rule into the relevant skill rather
-than re-prompting.
+Refresh or reinstall the plugin and start a new session before testing changed
+skills or hooks. Add durable instructions only after repeated, observed friction;
+keep one-off constraints in the request that needs them.

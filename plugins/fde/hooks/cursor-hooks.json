@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "hooks": {
+    "sessionStart": [
+      {
+        "command": "S=\"${CURSOR_PLUGIN_ROOT}/hooks/session_start.py\"; test -f \"$S\" || exit 0; FDE_HOOK_HOST=cursor exec python3 \"$S\"",
+        "timeout": 5
+      }
+    ],
+    "beforeShellExecution": [
+      {
+        "command": "G=\"${CURSOR_PLUGIN_ROOT}/hooks/guard.py\"; test -f \"$G\" || exit 0; exec python3 \"$G\"",
+        "timeout": 5
+      }
+    ]
+  }
+}

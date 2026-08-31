@@ -1,0 +1,17 @@
+{
+  "name": "adam-fde",
+  "owner": {
+    "name": "Adam Edgeworth"
+  },
+  "metadata": {
+    "description": "Adam Edgeworth's lightweight development workflow for complex and Databricks work.",
+    "pluginRoot": "plugins"
+  },
+  "plugins": [
+    {
+      "name": "fde",
+      "source": "fde",
+      "description": "Plan, build, resume, and ship complex work with external specs, proportionate verification, and Databricks-aware safety."
+    }
+  ]
+}

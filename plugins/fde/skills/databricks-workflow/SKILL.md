@@ -1,14 +1,13 @@
 ---
 name: databricks-workflow
-description: How to run the spec-driven loop against Databricks — profile discipline, which Databricks skill to load for which task, and the verification ladder that gives each ledger task a runnable evidence command. Use when a spec touches Databricks, before writing DABs, jobs, pipelines, notebooks, SQL, or Unity Catalog changes. Triggers on Databricks work of any kind inside /fde:spec, /fde:build, or /fde:ship.
+description: Apply safe Databricks profile selection and choose proportionate local or remote verification for an fde spec. Use when fde work touches Databricks bundles, jobs, pipelines, SQL, apps, ML, or Unity Catalog.
 ---
 
 # Databricks workflow
 
-Databricks work breaks the normal inner loop: the code often cannot run on your
-laptop, so "write a test and watch it fail" needs deliberate design. This skill
-covers how to keep evidence runnable anyway, and how to route into the
-Databricks skills you already have installed.
+Databricks work often crosses local and remote execution. Keep local business
+logic easy to test, make the target workspace explicit, and distinguish safe
+checks from operations that mutate shared state.
 
 ## Profile discipline
 
@@ -22,12 +21,13 @@ databricks current-user me --profile <name>    # confirm before anything statefu
 ```
 
 Ask which profile to use once per spec, record it in `SPEC.md`, and use it for
-every command in that spec.
+every Databricks command in that spec. Confirm the current user before the first
+stateful operation.
 
 ## Route into the Databricks skills
 
-Load `databricks-core` first, then the matching product skill — do not
-improvise CLI invocations when a skill covers the area:
+When these skills are installed, load `databricks-core` first and then the
+matching product skill rather than guessing current CLI or resource behavior:
 
 | Work | Skill |
 | --- | --- |
@@ -48,31 +48,37 @@ improvise CLI invocations when a skill covers the area:
 | Running code on compute | `databricks-execution-compute` |
 | Anything not covered above | `databricks-docs` |
 
-## The verification ladder
+## Verification ladder
 
-Every ledger task needs an evidence command that fails before and passes after.
-Take the **highest rung that genuinely proves the task**, because each rung down
-is slower and less deterministic. Most tasks should sit on rungs 1-3.
+Choose the earliest rung that genuinely proves the outcome. Show a failing
+regression first when it is meaningful; do not manufacture failure for static
+configuration or already-correct supporting behavior.
 
 1. **Pure Python, local pytest.** Parsing, transformation logic, config
    handling, schema decisions. Fastest and fully deterministic — structure code
    so the interesting logic lives here, separable from the Spark session.
-   `evidence: pytest tests/test_transform.py::test_drops_null_keys`
+   `verify: pytest tests/test_transform.py::test_drops_null_keys`
 2. **Spark logic, local session or Databricks Connect.** DataFrame
    transformations against small fixtures.
-   `evidence: pytest tests/test_pipeline.py -k schema_evolution`
-3. **Static validation of config.** Bundles, job definitions, and SQL parse
+   `verify: pytest tests/test_pipeline.py -k schema_evolution`
+3. **Static validation of config.** Validate bundles, job definitions, or SQL
    without deploying anything.
-   `evidence: databricks bundle validate --target dev --profile <name>`
-4. **Deployed dev behavior.** Deploy to the dev target and run it. Slower, needs
-   credentials, but it is the only proof for orchestration and permissions.
-   `evidence: databricks bundle run <job> --target dev --profile <name>`
-5. **Query against a dev warehouse.** For SQL objects, metric views, and grants.
-   `evidence: databricks sql query --warehouse <id> --profile <name> -e "..."`
+   `verify: databricks bundle validate --target dev --profile <name>`
+4. **Deployed dev behavior.** Deploy to a dev target and run it. This is
+   ordinary autonomous work, and may be the only way to prove orchestration and
+   permission behavior. Confirm first only when the run mutates state others
+   depend on — overwriting a catalog object, altering grants, resizing shared
+   compute — or when it carries unusual cost. A workspace named "production" is
+   not by itself a reason to stop when it is the engagement's only workspace;
+   see the single-workspace note under Safety.
+   `verify: databricks bundle run <job> --target dev --profile <name>`
+5. **Query against a dev warehouse.** Use for SQL objects, metric views, and
+   grants after confirming the profile, warehouse, catalog, and schema.
+   `verify: databricks sql query --warehouse <id> --profile <name> -e "..."`
 
-When a task can only be verified on rungs 4-5, say so in the ledger. In
-`/fde:status`, a rung 4-5 evidence command that cannot run for lack of
-credentials is reported as **not verified** — never as passing.
+When an outcome needs rungs 4-5, record that its validation is remote and
+stateful. Never run it merely to report status. If credentials or authority are
+unavailable, report it as not verified rather than passing.
 
 ## Design for testability
 
@@ -88,10 +94,27 @@ rung 1 or 2. The same logic inline in a notebook cell is only testable on rung 4
 
 ## Safety
 
-- **Never deploy to a production target.** `--target prod`, prod workspaces, and
-  prod catalogs are user-only actions. The plugin's PreToolUse guard blocks
-  these; do not attempt to work around it.
+- **Never deploy to a production target.** Production workspaces, targets, and
+  catalogs are user-only actions. The plugin hook is defense-in-depth, not a
+  complete enforcement boundary.
 - Confirm before anything that mutates shared state — dropping tables, altering
   grants, overwriting a catalog object, or resizing shared compute.
 - Prefer dev catalogs and schemas for everything the loop does. Record the
   catalog and schema in `SPEC.md` so it is visible in review.
+
+**Single-workspace engagements.** Some customers have exactly one workspace, and
+it may be named production. There a prod-named bundle target is not a promotion
+from a lower environment — it is simply the workspace — and treating it as a
+production deploy trains the operator to bypass the guard for routine work.
+Declare it once per engagement in `fde.toml` inside that repository's spec-store
+directory:
+
+```toml
+[safety]
+single_workspace = true
+```
+
+That stops target *names* being read as a promotion signal for `bundle deploy`
+and `bundle run`. It does not relax anything else: `bundle destroy` stays
+blocked, and shared-state mutation still needs confirmation. Leave it unset when
+the customer has separate dev and prod targets.

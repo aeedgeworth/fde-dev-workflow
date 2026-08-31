@@ -1,13 +1,13 @@
 {
-  "description": "fde workflow hooks: orient the session in the active spec, guard irreversible operations, and keep edits formatted to the project's own standard.",
+  "description": "fde workflow hooks: orient the session in active work and add a best-effort guard for explicit high-cost commands.",
   "hooks": {
     "SessionStart": [
       {
-        "matcher": "startup|clear|compact",
+        "matcher": "startup|resume|clear|compact",
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/session_start.py\" || true",
+            "command": "S=\"${PLUGIN_ROOT:-${CLAUDE_PLUGIN_ROOT}}/hooks/session_start.py\"; test -f \"$S\" || exit 0; exec python3 \"$S\"",
             "timeout": 5,
             "statusMessage": "Loading active spec"
           }
@@ -20,22 +20,9 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/guard.py\"",
+            "command": "G=\"${PLUGIN_ROOT:-${CLAUDE_PLUGIN_ROOT}}/hooks/guard.py\"; test -f \"$G\" || exit 0; exec python3 \"$G\"",
             "timeout": 5,
             "statusMessage": "Checking guardrails"
-          }
-        ]
-      }
-    ],
-    "PostToolUse": [
-      {
-        "matcher": "Edit|Write|MultiEdit",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/autoformat.py\" || true",
-            "timeout": 15,
-            "statusMessage": "Formatting"
           }
         ]
       }

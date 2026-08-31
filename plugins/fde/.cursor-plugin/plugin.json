@@ -1,0 +1,12 @@
+{
+  "name": "fde",
+  "version": "0.2.3",
+  "description": "Lightweight spec-driven workflow for complex or multi-session work: plan, build, resume, validate, and optionally open a PR without adding spec artifacts to the client repository.",
+  "author": {
+    "name": "Adam Edgeworth"
+  },
+  "keywords": ["spec-driven", "databricks", "workflow", "code-review", "worktree"],
+  "skills": "./skills/",
+  "commands": "./commands/",
+  "hooks": "./hooks/cursor-hooks.json"
+}

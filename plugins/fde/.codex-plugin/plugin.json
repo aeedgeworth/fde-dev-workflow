@@ -1,0 +1,31 @@
+{
+  "name": "fde",
+  "version": "0.2.3+codex.20260831030144",
+  "description": "A lightweight, spec-driven development workflow for complex or multi-session engineering work.",
+  "author": {
+    "name": "Adam Edgeworth"
+  },
+  "keywords": [
+    "development-workflow",
+    "spec-driven",
+    "databricks",
+    "code-review"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "FDE Development Workflow",
+    "shortDescription": "Plan, build, resume, and ship complex changes",
+    "longDescription": "A lightweight development workflow that adds persistent specs only when work is complex or spans sessions, with Databricks-aware validation and safe handoff practices.",
+    "developerName": "Adam Edgeworth",
+    "category": "Productivity",
+    "capabilities": [
+      "Read",
+      "Write"
+    ],
+    "defaultPrompt": [
+      "Plan this complex change with the FDE workflow.",
+      "Resume my active FDE spec and continue the work.",
+      "Validate and ship my active FDE spec."
+    ]
+  }
+}

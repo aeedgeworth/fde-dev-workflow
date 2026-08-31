@@ -51,7 +51,8 @@ created: {{DATE}}
 
 ## Open questions
 
-<!-- Unknowns that do not block starting. Resolve into the Decision log. -->
+<!-- Only unknowns that do not block starting. Resolve durable answers into the
+     relevant section and the Decision log. Write "None" when there are none. -->
 
 - [ ]
 

@@ -1,9 +1,9 @@
 {
   "name": "fde",
-  "description": "Spec-driven development loop for Databricks and Python work: /fde:spec interviews you into a standard two-file spec, /fde:build works a verifiable task ledger, /fde:status reconciles the ledger against git, /fde:ship reviews and opens the PR. Spec artifacts are stored outside the repo so client working trees stay clean.",
-  "version": "0.1.0",
+  "description": "Lightweight spec-driven workflow for complex or multi-session work: plan, build, resume, validate, and optionally open a PR without adding spec artifacts to the client repository.",
+  "version": "0.2.3",
   "author": {
     "name": "Adam Edgeworth"
   },
-  "keywords": ["spec-driven", "databricks", "python", "workflow", "code-review", "worktree"]
+  "keywords": ["spec-driven", "databricks", "workflow", "code-review", "worktree"]
 }
