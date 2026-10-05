@@ -70,7 +70,7 @@ artifact is required.
 Claude Code exposes thin command adapters:
 
 ```text
-/fde:spec "<rough idea>"       create SPEC.md and PLAN.md
+/fde:spec "<rough idea>"       create SPEC.md and PLAN.md (--lite | --deep)
 /fde:build                     implement the active plan
 /fde:status                    resume active work
 /fde:status <spec-ref>         reconcile the ledger against repository evidence
@@ -92,6 +92,16 @@ Cursor uses the same command files as slash commands (`/spec`, `/build`,
 `/status`, `/ship`; the host may prefix the plugin name) and the same
 `fde-workflow` skill (`/fde-workflow`).
 
+Planning discovers before it asks. The agent answers what it can from the
+repository and, for Databricks work, from read-only workspace queries with an
+explicit profile. It then asks only about material unknowns, records reversible
+choices as assumptions, and turns questions that only experiment can answer into
+time-boxed spike tasks. `--lite` skips the interview; `--deep` keeps interviewing
+until every material unknown is settled. Before the plan is handed off,
+`spec_store.py check` verifies that every acceptance criterion has a covering
+task, and a fresh-context reviewer looks for untestable, ambiguous, or
+unsupported statements.
+
 Build mode completes the safe remaining scope by default. Use `--step` when you
 want exactly one ledger task and `--commit` when you want the agent to create
 coherent commits. Commits are not an implicit side effect of implementation.
@@ -100,9 +110,10 @@ coherent commits. Commits are not an implicit side effect of implementation.
 
 FDE keeps two files with different lifecycles:
 
-- `SPEC.md` records the problem, scope, non-goals, approach, decisions,
-  acceptance criteria, risks, and decision log.
-- `PLAN.md` is the mutable ordered ledger of outcomes and their verification.
+- `SPEC.md` records the problem, discovered context, scope, non-goals,
+  approach, decisions, assumptions, acceptance criteria, risks, and decision log.
+- `PLAN.md` is the mutable ordered ledger of spikes and outcomes, each outcome
+  naming the acceptance criteria it covers and its verification.
 
 Specs live outside the client repository under `$DEV_WORKFLOW_HOME`, defaulting
 to `~/dev-workflow`, and are keyed by the Git remote:

@@ -11,6 +11,7 @@ Usage:
     spec_store.py list                 Print every spec with status and progress.
     spec_store.py active               Print the most recently touched open spec.
     spec_store.py resolve <ref>        Resolve an id, slug, or unique substring.
+    spec_store.py check [ref]          Lint a spec: AC coverage, fields, leftovers.
 """
 
 from __future__ import annotations
@@ -28,6 +29,13 @@ UNCHECKED = re.compile(r"^\s*-\s*\[ \]", re.MULTILINE)
 STATUS_FIELD = re.compile(r"^status:\s*(.+)$", re.IGNORECASE | re.MULTILINE)
 SPEC_NAME = re.compile(r"^(\d{3})-(.+)$")
 TERMINAL_STATUSES = {"abandoned", "cancelled", "complete", "shipped"}
+CRITERION = re.compile(r"^\s*-\s*\[[ xX]\]\s*\**(AC\d+)\**[:.]?[ \t]*(.*)$", re.MULTILINE)
+TASK = re.compile(r"^\s*-\s*\[[ xX]\]\s*\*\*(T\d+)\*\*\s*(.*)$")
+TASK_FIELD = re.compile(r"^\s+-\s*([a-z]+):\s*(.*)$")
+PLACEHOLDER = re.compile(
+    r"\{\{[A-Z]+\}\}|<(?:one-sentence|outcome|question|safe command|command or|expected paths)[^>]*>"
+)
+MAX_TASKS = 15
 
 
 def _git(*args: str, cwd: Path | None = None) -> str | None:
@@ -196,6 +204,79 @@ def resolve_spec(directory: Path, ref: str) -> Path:
     return matches[0]
 
 
+def parse_tasks(plan_text: str) -> list[dict[str, object]]:
+    """Return ledger tasks with their indented ``- field: value`` lines.
+
+    A field belongs to the nearest task above it; any unindented line ends the
+    task, so prose and code fences between tasks are never read as fields.
+    """
+    tasks: list[dict[str, object]] = []
+    current: dict[str, object] | None = None
+    for line in plan_text.splitlines():
+        if match := TASK.match(line):
+            current = {"id": match.group(1), "title": match.group(2), "fields": {}}
+            tasks.append(current)
+        elif current is not None and (field := TASK_FIELD.match(line)):
+            current["fields"][field.group(1)] = field.group(2).strip()  # type: ignore[index]
+        elif line and not line[0].isspace():
+            current = None
+    return tasks
+
+
+def _is_spike(task: dict[str, object]) -> bool:
+    return str(task["title"]).lower().startswith("spike")
+
+
+def check_spec(spec: Path) -> tuple[list[str], list[str]]:
+    """Return (errors, warnings) for a spec's structural readiness to build.
+
+    Errors mean the spec cannot be traced: a criterion no task delivers, a task
+    citing a criterion that does not exist, or unfilled template text. Warnings
+    are judgment calls the reviewer should look at but may accept.
+    """
+    spec_file, plan_file = spec / "SPEC.md", spec / "PLAN.md"
+    spec_text = spec_file.read_text(encoding="utf-8") if spec_file.is_file() else ""
+    plan_text = plan_file.read_text(encoding="utf-8") if plan_file.is_file() else ""
+    errors: list[str] = []
+    warnings: list[str] = []
+
+    for name, text in (("SPEC.md", spec_text), ("PLAN.md", plan_text)):
+        for number, line in enumerate(text.splitlines(), start=1):
+            if PLACEHOLDER.search(line):
+                errors.append(f"{name}:{number}: unfilled template text: {line.strip()}")
+
+    criteria = {match.group(1): match.group(2).strip() for match in CRITERION.finditer(spec_text)}
+    if not criteria:
+        errors.append("SPEC.md: no acceptance criteria (expected `- [ ] AC1 <statement>`)")
+    for criterion, statement in criteria.items():
+        if not statement:
+            errors.append(f"SPEC.md: {criterion} has no statement")
+
+    tasks = parse_tasks(plan_text)
+    if not tasks:
+        errors.append("PLAN.md: no tasks (expected `- [ ] **T1** <outcome>`)")
+    if len(tasks) > MAX_TASKS:
+        warnings.append(f"PLAN.md: {len(tasks)} tasks; past {MAX_TASKS} the work usually wants two specs")
+
+    covered: set[str] = set()
+    for task in tasks:
+        fields: dict[str, str] = task["fields"]  # type: ignore[assignment]
+        cited = set(re.findall(r"AC\d+", fields.get("covers", "")))
+        for unknown in sorted(cited - criteria.keys()):
+            errors.append(f"PLAN.md: {task['id']} covers {unknown}, which SPEC.md does not define")
+        covered |= cited
+        if _is_spike(task):
+            if not fields.get("timebox"):
+                warnings.append(f"PLAN.md: spike {task['id']} has no timebox")
+        elif not fields.get("verify"):
+            warnings.append(f"PLAN.md: {task['id']} has no verify step")
+
+    for criterion in sorted(criteria.keys() - covered, key=lambda c: int(c[2:])):
+        errors.append(f"PLAN.md: no task covers {criterion}")
+
+    return errors, warnings
+
+
 def main(argv: list[str]) -> int:
     if not argv:
         print(__doc__)
@@ -226,6 +307,21 @@ def main(argv: list[str]) -> int:
         if not args:
             raise SystemExit("fde: `resolve` requires an id, slug, or substring")
         print(resolve_spec(directory, args[0]))
+    elif command == "check":
+        if args:
+            spec = resolve_spec(directory, args[0])
+        elif specs := active_spec_dirs(directory):
+            spec = specs[0]
+        else:
+            raise SystemExit("fde: no active specs for this repo — pass a spec reference")
+        errors, warnings = check_spec(spec)
+        for error in errors:
+            print(f"error: {error}")
+        for warning in warnings:
+            print(f"warning: {warning}")
+        if not errors:
+            print(f"ok: {spec.name} is traceable ({len(warnings)} warning(s))")
+        return 1 if errors else 0
     else:
         raise SystemExit(f"fde: unknown command {command!r}")
     return 0

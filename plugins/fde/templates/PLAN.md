@@ -13,13 +13,25 @@ Checked tasks carry `done: <date> · <short-sha|uncommitted>`. Repository commit
 link back with a `Spec:` trailer. The external ledger records the SHA after the
 commit succeeds; it is never part of the code commit itself.
 
+Each delivery task names the acceptance criteria it advances with `covers:`;
+every criterion in SPEC.md needs at least one covering task. A **spike**
+answers a question that blocks a decision: it has a timebox instead of a verify
+step, records its answer in the spec's Decision log, and may rewrite the tasks
+after it. Put spikes first. `spec_store.py check` enforces this structure.
+
 ## Tasks
 
-- [ ] **T1** <one-sentence observable outcome>
+- [ ] **T1** Spike: <question whose answer changes the plan>
+  - timebox: <e.g. 1 hour, or one session>
+  - resolves: <assumption or open question it settles>
+
+- [ ] **T2** <one-sentence observable outcome>
+  - covers: AC1
   - verify: `<safe command that demonstrates the outcome, when one exists>`
   - paths: `<expected paths, optional>`
 
-- [ ] **T2** <outcome>
+- [ ] **T3** <outcome>
+  - covers: AC2
   - verify: `<command or concise manual check>`
   - paths: `<expected paths, optional>`
 

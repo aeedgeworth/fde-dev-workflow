@@ -42,7 +42,11 @@ python3 <plugin-root>/scripts/spec_store.py new "<title>"
 python3 <plugin-root>/scripts/spec_store.py active
 python3 <plugin-root>/scripts/spec_store.py resolve "<ref>"
 python3 <plugin-root>/scripts/spec_store.py list
+python3 <plugin-root>/scripts/spec_store.py check "<ref>"
 ```
+
+`check` exits non-zero when an acceptance criterion has no covering task, a
+task cites an undefined criterion, or template text is left unfilled.
 
 Specs live under `DEV_WORKFLOW_HOME` when set, otherwise under
 `~/dev-workflow`. They are external state: they do not belong to the code
@@ -53,20 +57,35 @@ repository's commits.
 Use this mode for `/fde:spec`, `$fde-workflow plan`, or an explicit request for
 a persistent spec.
 
-1. Ground the request in the repository and summarize only the facts that
-   materially shape the work.
-2. Ask one concise set of unresolved, high-impact questions. Prefer stated
-   assumptions when a reversible choice is safe. `--lite` skips the interview
-   unless a decision truly blocks progress.
+Read `references/discovery.md` before step 1.
+
+1. **Discover.** Ground the request in the repository and, when the work
+   touches Databricks, in the workspace through read-only queries with an
+   explicit profile. Triage every unknown as observable, reversible, material,
+   or unknowable yet, and look up the observable ones before asking anything.
+2. **Clarify.** Ask only about material unknowns, with options and a
+   recommendation drawn from discovery. `--lite` skips the interview unless a
+   decision truly blocks progress; `--deep` runs repeated rounds until every
+   material unknown is resolved, agreed as an assumption, or planned as a spike.
 3. Create the spec directory with `spec_store.py new`, then copy the plugin's
    `templates/SPEC.md` and `templates/PLAN.md` into it.
-4. Write concrete scope, tempting non-goals, the chosen approach, meaningful
-   decisions, observable acceptance criteria, and change-specific risks. Use
-   `None` when a section genuinely has no content rather than inventing it.
-5. Create a short ordered ledger. Each task is an outcome, leaves the repository
-   usable, names a verification command when one exists, and stays under roughly
-   15 tasks. Split work that is too large to reason about as one change.
-6. Report the artifact path, first task, and any remaining blocker.
+4. Write discovered facts with their sources under Context, then concrete scope,
+   tempting non-goals, the chosen approach, meaningful decisions, assumptions
+   with how each will be confirmed, observable acceptance criteria, and
+   change-specific risks. Use `None` when a section genuinely has no content
+   rather than inventing it.
+5. Create a short ordered ledger. Put spikes for unknowable-yet questions first,
+   each with a timebox. Every delivery task is an outcome, leaves the repository
+   usable, names the acceptance criteria it `covers`, names a verification
+   command when one exists, and the ledger stays under roughly 15 tasks. Split
+   work that is too large to reason about as one change.
+6. **Check.** Run `spec_store.py check <ref>` and fix every error. Then review
+   the spec as described in `references/spec-review.md`: in a fresh-context,
+   read-only subagent when the host provides one, otherwise as a deliberate
+   cold reread. Fix what you can; ask the user about the rest.
+7. Report the artifact path, the review verdict, the assumptions the user should
+   confirm, the first task, and any remaining blocker. Leave the status `draft`;
+   Build sets it to `active`.
 
 `SPEC.md` contains durable why/what. `PLAN.md` contains mutable execution state.
 Do not duplicate the same fact in both.
@@ -90,6 +109,12 @@ Use this mode for `/fde:build` or `$fde-workflow build`.
    has a repository commit.
 5. If reality changes scope or a durable decision, update the affected spec
    section and append a dated explanation to the Decision log.
+   When a spike finishes, record its answer in the Decision log, move any
+   assumption it settled into Context or correct it, and revise the tasks
+   after it. If the answer changes scope or an acceptance criterion, stop and
+   confirm with the user before building on it. A spike that exhausts its
+   timebox without an answer is a blocker to report, not a reason to extend it
+   silently.
 6. Do not create commits unless the user requests them or passes `--commit`.
    When committing, group coherent review units and add a
    `Spec: <spec-id> <task-id-list>` trailer. After the commit succeeds, replace
@@ -137,7 +162,8 @@ explicit request to check the ledger against the repository.
    branch. If neither exists, use the repository's root commit and state that
    fallback. Never hardcode `main` or assume deep history exists.
 6. Compare changed files with all ledger `paths`, and compare the implementation
-   with the acceptance criteria and non-goals.
+   with the acceptance criteria and non-goals. Run `spec_store.py check` to
+   confirm every criterion still has a covering task.
 
 Report **Verified**, **Drifted**, **Unrecorded**, **Unavailable**, and
 **Remaining** with task and file references. A missing commit or trailer, a safe
@@ -148,8 +174,8 @@ status update.
 
 Use this mode for `/fde:ship` or `$fde-workflow ship`.
 
-1. Resolve the spec and confirm unfinished tasks, acceptance criteria, and
-   unrecorded branch changes. Do not push or open a pull request while
+1. Resolve the spec, run `spec_store.py check`, and confirm unfinished tasks,
+   acceptance criteria and their covering tasks, and unrecorded branch changes. Do not push or open a pull request while
    task-related changes are uncommitted: ask the user to commit them or run
    Build with `--commit`. `--partial` permits a draft handoff only when the
    unfinished work is stated plainly.
