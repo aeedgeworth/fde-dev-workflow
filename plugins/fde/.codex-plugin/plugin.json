@@ -1,6 +1,6 @@
 {
   "name": "fde",
-  "version": "0.2.3+codex.20260831030144",
+  "version": "0.3.0+codex.20261004211043",
   "description": "A lightweight, spec-driven development workflow for complex or multi-session engineering work.",
   "author": {
     "name": "Adam Edgeworth"

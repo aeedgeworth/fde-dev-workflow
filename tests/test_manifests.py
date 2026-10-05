@@ -22,9 +22,9 @@ class ManifestTests(unittest.TestCase):
 
         self.assertEqual({manifest["name"] for manifest in manifests}, {"fde"})
         versions = {str(manifest["version"]).split("+", 1)[0] for manifest in manifests}
-        self.assertEqual(versions, {"0.2.3"})
+        self.assertEqual(versions, {"0.3.0"})
         self.assertRegex(
-            str(manifests[1]["version"]), r"^0\.2\.3\+codex\.\d{14}$"
+            str(manifests[1]["version"]), r"^0\.3\.0\+codex\.\d{14}$"
         )
 
     def test_cursor_manifest_resolves_every_declared_component(self) -> None:

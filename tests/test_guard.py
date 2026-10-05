@@ -211,6 +211,7 @@ class SingleWorkspaceTests(unittest.TestCase):
                 guard.blocked_reason("databricks bundle deploy --target prod", ROOT)
             )
 
+    @unittest.skipIf(sys.version_info < (3, 11), "fde.toml needs tomllib (Python 3.11+)")
     def test_prod_target_allowed_when_single_workspace_declared(self) -> None:
         with tempfile.TemporaryDirectory() as raw:
             store = Path(raw)

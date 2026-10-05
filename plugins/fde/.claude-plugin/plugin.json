@@ -1,7 +1,7 @@
 {
   "name": "fde",
   "description": "Lightweight spec-driven workflow for complex or multi-session work: plan, build, resume, validate, and optionally open a PR without adding spec artifacts to the client repository.",
-  "version": "0.2.3",
+  "version": "0.3.0",
   "author": {
     "name": "Adam Edgeworth"
   },

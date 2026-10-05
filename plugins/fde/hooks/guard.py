@@ -16,7 +16,6 @@ import re
 import shlex
 import subprocess
 import sys
-import tomllib
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
@@ -126,7 +125,11 @@ def _single_workspace(cwd: Path) -> bool:
     Any failure to read the setting returns False, keeping the strict default.
     """
     try:
-        from spec_store import store_dir  # imported lazily; the common path never needs it
+        # Imported lazily: the common path never needs them, and tomllib needs
+        # Python 3.11 while the guard itself must load on older interpreters.
+        import tomllib
+
+        from spec_store import store_dir
 
         config = store_dir(cwd=cwd) / "fde.toml"
         if not config.is_file():
